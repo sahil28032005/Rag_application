@@ -1,0 +1,15 @@
+FROM oven/bun:latest
+
+WORKDIR /app
+
+COPY package.json bun.lockb ./
+RUN bun install --production
+
+COPY apps/backend ./apps/backend
+
+# Create upload directories
+RUN mkdir -p uploads processed
+
+EXPOSE 3001
+
+CMD ["bun", "apps/backend/index.ts"]

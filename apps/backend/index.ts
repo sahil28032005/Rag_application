@@ -66,6 +66,13 @@ const server = serve({
 //handle pdf upload
 async function handleUpload(req: Request) {
   try {
+    // Check if the content type is multipart/form-data
+    const contentType = req.headers.get('content-type') || '';
+    console.log("content type",contentType);
+    if (!contentType.includes('multipart/form-data')) {
+      return new Response("Invalid request format. Use multipart/form-data.", { status: 400 });
+    }
+
     const formData = await req.formData();
     const file = formData.get("file") as File;
 

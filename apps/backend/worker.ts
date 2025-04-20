@@ -1,10 +1,22 @@
 import { Worker } from "bullmq";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
+import { QuadrantClient } from "@qdrant/js-client-rest";
+import OpenAI from "openai";
 
 // Redis connection settings
 const REDIS_HOST = process.env.REDIS_HOST || "localhost";
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || "6379");
+
+//open ai configuration
+const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+});
+
+//qdrant configuration
+const client = new QuadrantClient({
+    url: process.env.QDRANT_URL || "http://localhost:6333"
+});
 
 //create worker
 const worker = new Worker("pdf-processing", async (job) => {
@@ -21,11 +33,13 @@ const worker = new Worker("pdf-processing", async (job) => {
         }
 
         //update job progress
-        job.updateProgress(30);
+        job.updateProgress(20);
 
         // Here you would implement your PDF processing logic
         // For example:
         // 1. Extract text from PDF
+
+        
         // 2. Parse metadata
         // 3. Generate thumbnails
         // 4. Store results in database

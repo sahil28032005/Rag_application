@@ -1,5 +1,5 @@
 import { Worker } from "bullmq";
-imort { join } from "node:path";
+import { join } from "node:path";
 import { existsSync } from "node:fs";
 
 // Redis connection settings

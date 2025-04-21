@@ -3,6 +3,8 @@ import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { QdrantClient } from "@qdrant/js-client-rest";
 import OpenAI from "openai";
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+import { Document } from "langchain/document";
 
 // Redis connection settings
 const REDIS_HOST = process.env.REDIS_HOST || "localhost";
@@ -17,6 +19,16 @@ const openai = new OpenAI({
 const client = new QdrantClient({
     url: process.env.QDRANT_URL || "http://localhost:6333"
 });;
+
+//helper interface for chunking
+interface TextChunk {
+    text: string;
+    metadata: {
+        filename: string;
+        chunkIndex: number;
+        location: string;
+    }
+}
 
 //create worker
 const worker = new Worker("pdf-processing", async (job) => {
@@ -48,14 +60,20 @@ const worker = new Worker("pdf-processing", async (job) => {
 
         job.updateProgress(40);
 
-        // 2. Parse metadata
-        // 3. Generate thumbnails
-        // 4. Store results in database
-        // Simulate processing time
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // 2 create text chunks using langchains text splitter
+        const chunks = await createChunks(extractedText, filename);
+        console.log(`Created ${chunks.length} chunks from text`);
+
+        // Log chunk details
+        chunks.forEach((chunk, index) => {
+            console.log(`\n--- Chunk ${index + 1}/${chunks.length} ---`);
+            console.log(`Length: ${chunk.text.length} characters`);
+            console.log(`Preview: ${chunk.text.substring(0, 100)}...`);
+            console.log(`Metadata:`, chunk.metadata);
+        });
 
         // Update job progress
-        await job.updateProgress(70);
+        await job.updateProgress(60);
 
         // More processing...
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -69,7 +87,8 @@ const worker = new Worker("pdf-processing", async (job) => {
             filename,
             processedAt: new Date().toISOString(),
             textLength: extractedText.length,
-            // Add more processing results here
+            chunks: chunks,
+            numChunks: chunks.length
         };
 
     }
@@ -86,9 +105,36 @@ const worker = new Worker("pdf-processing", async (job) => {
     concurrency: 2,
 });
 
+async function createChunks(text: string, filename: string): Promise<TextChunk[]> {
+    // Initialize the text splitter with specific parameters
+    const textSplitter = new RecursiveCharacterTextSplitter({
+        chunkSize: 1000,
+        chunkOverlap: 200,
+        lengthFunction: (text: string) => text.length,
+        separators: ["\n\n", "\n", " ", ""] // Order from most to least preferred splitting points
+    });
+
+    // Split the text into chunks
+    const rawChunks = await textSplitter.createDocuments(
+        [text],
+        [{ filename, source: filename }]
+    ) as Document[];
+
+    // Convert to our TextChunk format with proper typing
+    return rawChunks.map((chunk: Document, index: number) => ({
+        text: chunk.pageContent,
+        metadata: {
+            filename,
+            chunkIndex: index,
+            location: `chunk-${index + 1}`,
+            ...chunk.metadata
+        }
+    }));
+}
+
 async function extractTextFromPDF(filepath: string): Promise<string> {
     const textExtractorUrl = process.env.TEXT_EXTRACTOR_URL || 'http://localhost:5000';
-    
+
     // Trim spaces from filepath
     const trimmedFilepath = filepath.trim();
 

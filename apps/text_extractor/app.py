@@ -5,6 +5,10 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy", "service": "text-extractor"}), 200
+    
 @app.route('/extract', methods=['POST'])
 def extract_text():
     data = request.json

@@ -29,5 +29,49 @@ def extract_text():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Import sentence-transformers for embeddings
+from sentence_transformers import SentenceTransformer
+import numpy as np
+
+# Initialize the model - this will be loaded once when the app starts
+# Using a smaller model that's fast and efficient
+model = None
+
+def get_model():
+    global model
+    if model is None:
+        print("Loading embedding model...")
+        model = SentenceTransformer('all-MiniLM-L6-v2')
+        print("Model loaded successfully")
+    return model
+
+@app.route('/embed', methods=['POST'])
+def create_embedding():
+    data = request.json
+    
+    if not data or 'text' not in data:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    try:
+        # Get the model
+        model = get_model()
+        
+        # Generate embedding
+        text = data['text']
+        embedding = model.encode(text)
+        
+        # Convert to list and ensure it's JSON serializable
+        embedding_list = embedding.tolist()
+        
+        return jsonify({
+            'data': [{
+                'embedding': embedding_list
+            }],
+            'dimensions': len(embedding_list),
+            'model': 'sentence-transformers-MiniLM-L6'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

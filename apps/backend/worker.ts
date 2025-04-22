@@ -75,6 +75,120 @@ const worker = new Worker("pdf-processing", async (job) => {
         // Update job progress
         await job.updateProgress(60);
 
+        //3 convert chunked data into vector assects by openai model
+        console.log("Converting chunks to vector embeddings...");
+        const collectionName = `pdf_${filename.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]/g, "_")}`;
+        
+        // Create collection if it doesn't exist
+        try {
+            const collections = await client.getCollections();
+            const collectionExists = collections.collections.some(c => c.name === collectionName);
+            
+            if (!collectionExists) {
+                console.log(`Creating new collection: ${collectionName}`);
+                await client.createCollection(collectionName, {
+                    vectors: {
+                        size: 1536, // OpenAI embeddings dimension
+                        distance: "Cosine"
+                    }
+                });
+            } else {
+                console.log(`Collection ${collectionName} already exists`);
+            }
+            
+            // Process chunks and create embeddings
+            const points = [];
+            for (let i = 0; i < chunks.length; i++) {
+                const chunk = chunks[i];
+                if (!chunk) {
+                    console.log(`Skipping undefined chunk at index ${i}`);
+                    continue;
+                }
+                
+                // Generate embedding using OpenAI with retry logic
+                let embeddingResponse;
+                let retryCount = 0;
+                const maxRetries = 3;
+                const initialDelay = 2000; // 2 seconds
+                
+                while (retryCount <= maxRetries) {
+                    try {
+                        // Generate embedding using OpenAI
+                        embeddingResponse = await openai.embeddings.create({
+                            model: "text-embedding-ada-002",
+                            input: chunk.text
+                        });
+                        break; // Success, exit retry loop
+                    } catch (error) {
+                        if ((error as { status?: number }).status === 429) {
+                            retryCount++;
+                            if (retryCount > maxRetries) {
+                                console.log(`Failed after ${maxRetries} retries. Giving up on chunk ${i+1}.`);
+                                throw error; // Rethrow after max retries
+                            }
+                            
+                            const delay = initialDelay * Math.pow(2, retryCount - 1); // Exponential backoff
+                            console.log(`Rate limit hit. Retrying in ${delay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`);
+                            await new Promise(resolve => setTimeout(resolve, delay));
+                        } else {
+                            // Not a rate limit error, rethrow immediately
+                            throw error;
+                        }
+                    }
+                }
+                
+                // Check if the response contains data
+                if (!embeddingResponse || !embeddingResponse.data || embeddingResponse.data.length === 0) {
+                    console.log(`No embedding returned for chunk ${i+1}. Skipping.`);
+                    continue;
+                }
+                
+                const embedding = embeddingResponse.data[0]!.embedding;
+                
+                // Debug: Log embedding information
+                console.log(`\n--- Embedding for Chunk ${i+1} ---`);
+                console.log(`Embedding dimensions: ${embedding.length}`);
+                console.log(`First 5 values: [${embedding.slice(0, 5).join(', ')}]`);
+                console.log(`Last 5 values: [${embedding.slice(-5).join(', ')}]`);
+                console.log(`Min value: ${Math.min(...embedding)}`);
+                console.log(`Max value: ${Math.max(...embedding)}`);
+                console.log(`Average value: ${embedding.reduce((a, b) => a + b, 0) / embedding.length}`);
+                
+                // Create point for Qdrant
+                points.push({
+                    id: `${filename}_chunk_${i}`,
+                    vector: embedding,
+                    payload: {
+                        text: chunk.text,
+                        metadata: chunk.metadata
+                    }
+                });
+                
+                // Update progress incrementally
+                const progressIncrement = 30 / chunks.length;
+                await job.updateProgress(60 + (progressIncrement * (i + 1)));
+                
+                console.log(`Processed embedding for chunk ${i+1}/${chunks.length}`);
+            }
+            
+            // Upload points to Qdrant in batches if there are many
+            if (points.length > 0) {
+                const batchSize = 100;
+                for (let i = 0; i < points.length; i += batchSize) {
+                    const batch = points.slice(i, i + batchSize);
+                    await client.upsert(collectionName, {
+                        points: batch
+                    });
+                    console.log(`Uploaded batch ${Math.floor(i/batchSize) + 1}/${Math.ceil(points.length/batchSize)}`);
+                }
+            }
+            
+            console.log(`Successfully stored ${points.length} vector embeddings in collection ${collectionName}`);
+        } catch (error) {
+            console.error("Error creating vector embeddings:", error);
+            throw error;
+        }
+
         // More processing...
         await new Promise(resolve => setTimeout(resolve, 1000));
 

@@ -88,7 +88,7 @@ const worker = new Worker("pdf-processing", async (job) => {
                 console.log(`Creating new collection: ${collectionName}`);
                 await client.createCollection(collectionName, {
                     vectors: {
-                        size: 1536, // OpenAI embeddings dimension
+                        size: 384, // paraphrase-MiniLM-L3-v2 has 384 dimensions
                         distance: "Cosine"
                     }
                 });
@@ -105,70 +105,60 @@ const worker = new Worker("pdf-processing", async (job) => {
                     continue;
                 }
                 
-                // Generate embedding using OpenAI with retry logic
-                let embeddingResponse;
-                let retryCount = 0;
-                const maxRetries = 3;
-                const initialDelay = 2000; // 2 seconds
-                
-                while (retryCount <= maxRetries) {
-                    try {
-                        // Generate embedding using OpenAI
-                        embeddingResponse = await openai.embeddings.create({
-                            model: "text-embedding-ada-002",
-                            input: chunk.text
-                        });
-                        break; // Success, exit retry loop
-                    } catch (error) {
-                        if ((error as { status?: number }).status === 429) {
-                            retryCount++;
-                            if (retryCount > maxRetries) {
-                                console.log(`Failed after ${maxRetries} retries. Giving up on chunk ${i+1}.`);
-                                throw error; // Rethrow after max retries
-                            }
-                            
-                            const delay = initialDelay * Math.pow(2, retryCount - 1); // Exponential backoff
-                            console.log(`Rate limit hit. Retrying in ${delay/1000} seconds... (Attempt ${retryCount}/${maxRetries})`);
-                            await new Promise(resolve => setTimeout(resolve, delay));
-                        } else {
-                            // Not a rate limit error, rethrow immediately
-                            throw error;
-                        }
+                try {
+                    // Generate embedding using our Flask sidecar instead of OpenAI
+                    const textExtractorUrl = process.env.TEXT_EXTRACTOR_URL || 'http://localhost:5000';
+                    const embeddingResponse = await fetch(`${textExtractorUrl}/embed`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ text: chunk.text }),
+                    });
+                    
+                    if (!embeddingResponse.ok) {
+                        throw new Error(`Embedding generation failed: ${embeddingResponse.statusText}`);
                     }
-                }
-                
-                // Check if the response contains data
-                if (!embeddingResponse || !embeddingResponse.data || embeddingResponse.data.length === 0) {
-                    console.log(`No embedding returned for chunk ${i+1}. Skipping.`);
+                    
+                    const embeddingData = await embeddingResponse.json() as EmbeddingResponse;
+                    
+                    // Check if the response contains data
+                    if (!embeddingData.data || embeddingData.data.length === 0) {
+                        console.log(`No embedding returned for chunk ${i+1}. Skipping.`);
+                        continue;
+                    }
+                    
+                    // Option 1: Using non-null assertion operator
+                    const embedding = embeddingData.data[0]!.embedding;
+                    
+                    // OR Option 2: Using optional chaining with a fallback
+                    // const embedding = embeddingData.data[0]?.embedding || [];
+                    
+                    // Debug: Log embedding information
+                    console.log(`\n--- Embedding for Chunk ${i+1} ---`);
+                    console.log(`Embedding dimensions: ${embedding.length}`);
+                    console.log(`First 5 values: [${embedding.slice(0, 5).join(', ')}]`);
+                    
+                    // Create point for Qdrant
+                    points.push({
+                        id: `${filename}_chunk_${i}`,
+                        vector: embedding,
+                        payload: {
+                            text: chunk.text,
+                            metadata: chunk.metadata
+                        }
+                    });
+                    
+                    // Update progress incrementally
+                    const progressIncrement = 30 / chunks.length;
+                    await job.updateProgress(60 + (progressIncrement * (i + 1)));
+                    
+                    console.log(`Processed embedding for chunk ${i+1}/${chunks.length}`);
+                } catch (error) {
+                    console.error(`Error generating embedding for chunk ${i+1}:`, error);
+                    // Skip this chunk and continue with the next one
                     continue;
                 }
-                
-                const embedding = embeddingResponse.data[0]!.embedding;
-                
-                // Debug: Log embedding information
-                console.log(`\n--- Embedding for Chunk ${i+1} ---`);
-                console.log(`Embedding dimensions: ${embedding.length}`);
-                console.log(`First 5 values: [${embedding.slice(0, 5).join(', ')}]`);
-                console.log(`Last 5 values: [${embedding.slice(-5).join(', ')}]`);
-                console.log(`Min value: ${Math.min(...embedding)}`);
-                console.log(`Max value: ${Math.max(...embedding)}`);
-                console.log(`Average value: ${embedding.reduce((a, b) => a + b, 0) / embedding.length}`);
-                
-                // Create point for Qdrant
-                points.push({
-                    id: `${filename}_chunk_${i}`,
-                    vector: embedding,
-                    payload: {
-                        text: chunk.text,
-                        metadata: chunk.metadata
-                    }
-                });
-                
-                // Update progress incrementally
-                const progressIncrement = 30 / chunks.length;
-                await job.updateProgress(60 + (progressIncrement * (i + 1)));
-                
-                console.log(`Processed embedding for chunk ${i+1}/${chunks.length}`);
             }
             
             // Upload points to Qdrant in batches if there are many
@@ -283,3 +273,12 @@ worker.on('failed', (job, err) => {
     console.error(`Job ${job?.id} failed with error: ${err.message}`);
 });
 console.log('PDF processing worker started');
+
+// Add this interface near the top of your file with other interfaces
+interface EmbeddingResponse {
+    data: {
+        embedding: number[]
+    }[];
+    dimensions: number;
+    model: string;
+}

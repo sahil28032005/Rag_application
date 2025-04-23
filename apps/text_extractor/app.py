@@ -29,19 +29,20 @@ def extract_text():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Import sentence-transformers for embeddings
+# Add embedding functionality
+# You can choose between sentence-transformers or ONNX implementation
+# Option 1: Using sentence-transformers (PyTorch)
 from sentence_transformers import SentenceTransformer
 import numpy as np
 
 # Initialize the model - this will be loaded once when the app starts
-# Using a smaller model that's fast and efficient
 model = None
 
 def get_model():
     global model
     if model is None:
-        print("Loading embedding model...")
-        model = SentenceTransformer('all-MiniLM-L6-v2')
+        print("Loading embedding model with sentence-transformers...")
+        model = SentenceTransformer('paraphrase-MiniLM-L3-v2')  # Smaller, faster model
         print("Model loaded successfully")
     return model
 
@@ -68,10 +69,12 @@ def create_embedding():
                 'embedding': embedding_list
             }],
             'dimensions': len(embedding_list),
-            'model': 'sentence-transformers-MiniLM-L6'
+            'model': 'sentence-transformers-MiniLM-L3-v2'
         })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)

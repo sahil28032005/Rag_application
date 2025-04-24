@@ -143,11 +143,14 @@ const worker = new Worker("pdf-processing", async (job) => {
                     
                     // Create point for Qdrant
                     points.push({
-                        id: `${filename}_chunk_${i}`,
+                        id: parseInt(i.toString()), // Convert string ID to actual number
                         vector: embedding,
                         payload: {
                             text: chunk.text,
-                            metadata: chunk.metadata
+                            metadata: {
+                                ...chunk.metadata,
+                                original_id: `${filename}_chunk_${i}` // Store the original ID in metadata
+                            }
                         }
                     });
                     
@@ -176,8 +179,15 @@ const worker = new Worker("pdf-processing", async (job) => {
             }
             
             console.log(`Successfully stored ${points.length} vector embeddings in collection ${collectionName}`);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Error creating vector embeddings:", error);
+            
+            // Add detailed error logging
+            if (error && typeof error === 'object' && 'data' in error && 
+                error.data && typeof error.data === 'object' && 'status' in error.data) {
+                console.error("Detailed error:", JSON.stringify(error.data.status, null, 2));
+            }
+            
             throw error;
         }
 

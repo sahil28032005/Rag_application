@@ -2,7 +2,6 @@ import { Worker } from "bullmq";
 import { join } from "node:path";
 import { existsSync } from "node:fs";
 import { QdrantClient } from "@qdrant/js-client-rest";
-import OpenAI from "openai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { Document } from "langchain/document";
 
@@ -10,15 +9,16 @@ import { Document } from "langchain/document";
 const REDIS_HOST = process.env.REDIS_HOST || "localhost";
 const REDIS_PORT = parseInt(process.env.REDIS_PORT || "6379");
 
-//open ai configuration
-const openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-});
+// Remove OpenAI import and configuration since we're using the sidecar exclusively
+// for both text extraction and embeddings
 
 //qdrant configuration
 const client = new QdrantClient({
     url: process.env.QDRANT_URL || "http://localhost:6333"
-});;
+});
+
+// Text extractor configuration
+const TEXT_EXTRACTOR_URL = process.env.TEXT_EXTRACTOR_URL || 'http://localhost:5000';
 
 //helper interface for chunking
 interface TextChunk {
@@ -30,12 +30,21 @@ interface TextChunk {
     }
 }
 
+// Add this interface near the top of your file with other interfaces
+interface EmbeddingResponse {
+    data: {
+        embedding: number[]
+    }[];
+    dimensions: number;
+    model: string;
+}
+
 //create worker
 const worker = new Worker("pdf-processing", async (job) => {
     console.log(`processing job ${job.id}: ${job.data.filename}`);
 
     try {
-        //uppdate job progress
+        //update job progress
         job.updateProgress(10);
 
         const { filename, filepath } = job.data;
@@ -52,15 +61,13 @@ const worker = new Worker("pdf-processing", async (job) => {
         //update job progress
         job.updateProgress(20);
 
-        // Here you would implement your PDF processing logic
-        // For example:
-        // 1. Extract text from PDF
+        // 1. Extract text from PDF using sidecar service
         const extractedText = await extractTextFromPDF(containerPath);
         console.log(`Extracted ${extractedText.length} characters from ${filename}`);
 
         job.updateProgress(40);
 
-        // 2 create text chunks using langchains text splitter
+        // 2. Create text chunks using langchain's text splitter
         const chunks = await createChunks(extractedText, filename);
         console.log(`Created ${chunks.length} chunks from text`);
 
@@ -75,7 +82,7 @@ const worker = new Worker("pdf-processing", async (job) => {
         // Update job progress
         await job.updateProgress(60);
 
-        //3 convert chunked data into vector assects by openai model
+        // 3. Convert chunked data into vector embeddings using sidecar service
         console.log("Converting chunks to vector embeddings...");
         const collectionName = `pdf_${filename.replace(/\.[^/.]+$/, "").replace(/[^a-zA-Z0-9_]/g, "_")}`;
         
@@ -88,7 +95,7 @@ const worker = new Worker("pdf-processing", async (job) => {
                 console.log(`Creating new collection: ${collectionName}`);
                 await client.createCollection(collectionName, {
                     vectors: {
-                        size: 384, // paraphrase-MiniLM-L3-v2 has 384 dimensions
+                        size: 384, // all-MiniLM-L6-v2 has 384 dimensions
                         distance: "Cosine"
                     }
                 });
@@ -106,9 +113,8 @@ const worker = new Worker("pdf-processing", async (job) => {
                 }
                 
                 try {
-                    // Generate embedding using our Flask sidecar instead of OpenAI
-                    const textExtractorUrl = process.env.TEXT_EXTRACTOR_URL || 'http://localhost:5000';
-                    const embeddingResponse = await fetch(`${textExtractorUrl}/embed`, {
+                    // Generate embedding using our Flask sidecar
+                    const embeddingResponse = await fetch(`${TEXT_EXTRACTOR_URL}/embed`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
@@ -128,11 +134,7 @@ const worker = new Worker("pdf-processing", async (job) => {
                         continue;
                     }
                     
-                    // Option 1: Using non-null assertion operator
                     const embedding = embeddingData.data[0]!.embedding;
-                    
-                    // OR Option 2: Using optional chaining with a fallback
-                    // const embedding = embeddingData.data[0]?.embedding || [];
                     
                     // Debug: Log embedding information
                     console.log(`\n--- Embedding for Chunk ${i+1} ---`);
@@ -192,7 +194,8 @@ const worker = new Worker("pdf-processing", async (job) => {
             processedAt: new Date().toISOString(),
             textLength: extractedText.length,
             chunks: chunks,
-            numChunks: chunks.length
+            numChunks: chunks.length,
+            model: "all-MiniLM-L6-v2-onnx" // Add model information
         };
 
     }
@@ -237,13 +240,19 @@ async function createChunks(text: string, filename: string): Promise<TextChunk[]
 }
 
 async function extractTextFromPDF(filepath: string): Promise<string> {
-    const textExtractorUrl = process.env.TEXT_EXTRACTOR_URL || 'http://localhost:5000';
-
     // Trim spaces from filepath
     const trimmedFilepath = filepath.trim();
 
     try {
-        const response = await fetch(`${textExtractorUrl}/extract`, {
+        // Use the health check endpoint first to ensure the service is available
+        const healthResponse = await fetch(`${TEXT_EXTRACTOR_URL}/health`);
+        if (!healthResponse.ok) {
+            console.warn("Text extractor service health check failed, proceeding anyway");
+        } else {
+            console.log("Text extractor service is healthy");
+        }
+
+        const response = await fetch(`${TEXT_EXTRACTOR_URL}/extract`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -272,13 +281,5 @@ worker.on('completed', job => {
 worker.on('failed', (job, err) => {
     console.error(`Job ${job?.id} failed with error: ${err.message}`);
 });
-console.log('PDF processing worker started');
 
-// Add this interface near the top of your file with other interfaces
-interface EmbeddingResponse {
-    data: {
-        embedding: number[]
-    }[];
-    dimensions: number;
-    model: string;
-}
+console.log('PDF processing worker started');

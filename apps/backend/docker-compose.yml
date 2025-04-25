@@ -3,7 +3,7 @@ version: '3.8'
 services:
   text-extractor:
     build:
-      context: ../text-extractor
+      context: ../text_extractor
       dockerfile: Dockerfile
     ports:
       - "5000:5000"
@@ -40,7 +40,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - QDRANT_URL=http://qdrant:6333
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
     volumes:
       - ./uploads:/app/uploads
       - ./processed:/app/processed
@@ -58,7 +58,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - QDRANT_URL=http://qdrant:6333
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
       - TEXT_EXTRACTOR_URL=http://text-extractor:5000
     volumes:
       - ./uploads:/app/uploads

@@ -12,6 +12,4 @@ COPY . ./backend/
 # Create upload directories
 RUN mkdir -p uploads processed
 
-EXPOSE 3001
-
-CMD ["bun", "backend/index.ts"]
+CMD ["bun", "backend/worker.ts"]

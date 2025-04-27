@@ -1,84 +1,135 @@
-# Turborepo starter
+# I-Powered Document Processing System
+A powerful, scalable system for intelligent document processing and semantic search
 
-This Turborepo starter is maintained by the Turborepo core team.
+## ✨ Features
+- 📄 PDF Processing - Upload and process PDF documents with ease
+- 🔍 Semantic Search - Find information using natural language queries
+- 🤖 AI-Powered Responses - Get comprehensive answers from your documents
+- 🔄 Asynchronous Processing - Handle large documents efficiently
+- 📊 Vector Embeddings - Store and search document content semantically
+- 🔌 Microservices Architecture - Scalable and maintainable design
+## 🏗️ System Architecture
+```mermaid
+graph TD
+    A[Frontend Angular App] --> B[Backend API]
+    B --> C[Redis Queue]
+    C --> D[Worker Service]
+    D --> E[Text Extractor Service]
+    D --> F[Qdrant Vector DB]
+    B --> F
+    G[Google Generative AI] <--> B
+ ```
 
-## Using this example
-
-Run the following command:
-
-```sh
-npx create-turbo@latest
+## 🛠️ Tech Stack
+- Frontend : Angular, Next.js
+- Backend : Bun.js, TypeScript
+- Database : Qdrant Vector Database
+- Queue : Redis
+- AI : Google Generative AI
+- Containerization : Docker, Docker Compose
+- Build System : Turborepo
+## 🚀 Getting Started
+### Prerequisites
+- Node.js 18+
+- Docker and Docker Compose
+- Google AI API Key
+### Installation
+1. Clone the repository:
+```bash
+git clone https://github.com/yourusername/ai-practice.git
+cd ai-practice
+ ```
 ```
 
-## What's inside?
+2. Install dependencies:
+```bash
+pnpm install
+ ```
 
-This Turborepo includes the following packages/apps:
+3. Set up environment variables:
+```bash
+cp apps/backend/.env.example apps/backend/.env
+# Edit .env file with your API keys
+ ```
 
-### Apps and Packages
-
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
-
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-```
-cd my-turborepo
-pnpm build
-```
-
-### Develop
-
-To develop all apps and packages, run the following command:
-
-```
-cd my-turborepo
+4. Start the development environment:
+```bash
 pnpm dev
+ ```
+
+### Using Docker
+Start all services with Docker Compose:
+
+```bash
+cd apps/backend
+docker-compose up
+ ```
+
+## 📋 Project Structure
+```plaintext
+AI_practice/
+├── apps/
+│   ├── backend/           # Bun.js API and worker services
+│   ├── frontend/          # Angular frontend application
+│   ├── text_extractor/    # Python service for text extraction
+│   └── web/               # Next.js web application
+├── packages/
+│   ├── ui/                # Shared UI components
+│   ├── eslint-config/     # ESLint configurations
+│   └── typescript-config/ # TypeScript configurations
+└── turbo.json             # Turborepo configuration
+ ```
 ```
 
-### Remote Caching
+## 🔄 Data Flow
+1. Upload : User uploads PDF document through the frontend
+2. Queue : API service queues processing job in Redis
+3. Process : Worker extracts text, chunks content, and generates embeddings
+4. Store : Vector embeddings are stored in Qdrant
+5. Query : User searches using natural language
+6. Retrieve : System finds relevant document chunks
+7. Generate : AI creates comprehensive responses based on context
+## 🧪 Development
+To develop all apps and packages:
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+```bash
+pnpm dev
+ ```
 
-Turborepo can use a technique known as [Remote Caching](https://turbo.build/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+To build all apps and packages:
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+```bash
+pnpm build
+ ```
 
-```
-cd my-turborepo
-npx turbo login
-```
+## 🔒 Environment Variables
+The following environment variables are required:
 
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
+- GOOGLE_API_KEY : Google AI API key
+- REDIS_HOST : Redis host (default: localhost)
+- REDIS_PORT : Redis port (default: 6379)
+- QDRANT_URL : Qdrant URL (default: http://localhost:6333 )
+## 🌐 Deployment
+The system can be deployed using Docker Compose or to cloud services:
 
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
+- Docker Compose : For local or self-hosted deployment
+- AWS ECS/ECR : For cloud deployment with container orchestration
+- Vercel : For frontend applications
+## 📚 Learn More
+- Turborepo Documentation
+- Next.js Documentation
+- Angular Documentation
+- Qdrant Vector Database
+- Google Generative AI
+## 🤝 Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-```
-npx turbo link
-```
+1. Fork the repository
+2. Create your feature branch ( git checkout -b feature/amazing-feature )
+3. Commit your changes ( git commit -m 'Add some amazing feature' )
+4. Push to the branch ( git push origin feature/amazing-feature )
+5. Open a Pull Request
+## 📄 License
+This project is licensed under the MIT License - see the LICENSE file for details.
 
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turbo.build/docs/core-concepts/monorepos/running-tasks)
-- [Caching](https://turbo.build/docs/core-concepts/caching)
-- [Remote Caching](https://turbo.build/docs/core-concepts/remote-caching)
-- [Filtering](https://turbo.build/docs/core-concepts/monorepos/filtering)
-- [Configuration Options](https://turbo.build/docs/reference/configuration)
-- [CLI Usage](https://turbo.build/docs/reference/command-line-reference)
+Made with ❤️ using Turborepo

@@ -11,7 +11,7 @@ A powerful, scalable system for intelligent document processing and semantic sea
 ## 🏗️ System Architecture
 ```mermaid
 graph TD
-    A[Frontend Angular App] --> B[Backend API]
+    A[Frontend Flutter App] --> B[Backend API]
     B --> C[Redis Queue]
     C --> D[Worker Service]
     D --> E[Text Extractor Service]

@@ -14,7 +14,22 @@ spec:
     spec:
       containers:
       - name: worker
-        image: <account>.dkr.ecr.<region>.amazonaws.com/<repo>:worker-latest
+        image: 975050297639.dkr.ecr.ap-south-1.amazonaws.com/rag-chunking:worker-latest  # Worker Image URI
+        ports:
+        - containerPort: 5001  # Assuming a different port for worker
         envFrom:
         - secretRef:
             name: worker-env
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: worker-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: worker
+  ports:
+    - port: 80
+      targetPort: 5001

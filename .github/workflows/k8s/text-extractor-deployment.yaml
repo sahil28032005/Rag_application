@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: text-extractor-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: text-extractor
+  template:
+    metadata:
+      labels:
+        app: text-extractor
+    spec:
+      containers:
+      - name: text-extractor
+        image: <account>.dkr.ecr.<region>.amazonaws.com/<repo>:text-extractor-latest
+        ports:
+        - containerPort: 4000
+        envFrom:
+        - secretRef:
+            name: text-extractor-env
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: text-extractor-service
+spec:
+  type: LoadBalancer
+  selector:
+    app: text-extractor
+  ports:
+    - port: 80
+      targetPort: 4000

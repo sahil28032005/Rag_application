@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
       - name: api
-        image: <account>.dkr.ecr.<region>.amazonaws.com/<repo>:api-latest
+        image: 975050297639.dkr.ecr.ap-south-1.amazonaws.com/rag-chunking:api-latest  # Your image URI here
         ports:
         - containerPort: 5000
         envFrom:

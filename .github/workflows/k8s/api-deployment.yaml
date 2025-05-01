@@ -14,12 +14,9 @@ spec:
     spec:
       containers:
       - name: api
-        image: 975050297639.dkr.ecr.ap-south-1.amazonaws.com/rag-chunking:api-latest  # Your image URI here
+        image: 975050297639.dkr.ecr.ap-south-1.amazonaws.com/rag-chunking:api-latest
         ports:
-        - containerPort: 5000
-        envFrom:
-        - secretRef:
-            name: api-env
+        - containerPort: 3001  # app port inside container
 
 ---
 apiVersion: v1
@@ -31,5 +28,5 @@ spec:
   selector:
     app: api
   ports:
-    - port: 80
-      targetPort: 5000
+    - port: 80          # exposed to internet
+      targetPort: 3001  # inside container

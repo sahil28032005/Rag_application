@@ -14,9 +14,9 @@ spec:
     spec:
       containers:
       - name: text-extractor
-        image: <account>.dkr.ecr.<region>.amazonaws.com/<repo>:text-extractor-latest
+        image: 975050297639.dkr.ecr.ap-south-1.amazonaws.com/rag-chunking:text-extractor-latest  # Text Extractor Image URI
         ports:
-        - containerPort: 4000
+        - containerPort: 5002  # Assuming a different port for text extractor
         envFrom:
         - secretRef:
             name: text-extractor-env
@@ -32,4 +32,4 @@ spec:
     app: text-extractor
   ports:
     - port: 80
-      targetPort: 4000
+      targetPort: 5002

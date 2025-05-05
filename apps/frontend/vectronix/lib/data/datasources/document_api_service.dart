@@ -42,6 +42,7 @@ class DocumentApiService {
 
   Future<Map<String, dynamic>> searchDocuments(String query, {int limit = 5}) async {
     try {
+      print('sending request with query ${query}');
       final response = await _dioClient.post(
         '/api/search',
         data: {

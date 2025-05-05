@@ -9,7 +9,7 @@ import 'package:vectronix/domain/repositories/document_repository.dart';
 
 // Providers
 final dioClientProvider = Provider<DioClient>((ref) {
-  return DioClient(baseUrl: 'https://e88e-103-252-53-110.ngrok-free.app'); // Remove trailing slash
+  return DioClient(baseUrl: 'https://d0ef-103-252-53-110.ngrok-free.app'); // Remove trailing slash
 });
 
 final documentApiServiceProvider = Provider<DocumentApiService>((ref) {

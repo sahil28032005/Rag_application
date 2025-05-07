@@ -8,7 +8,11 @@ A powerful, scalable system for intelligent document processing and semantic sea
 - 🔄 Asynchronous Processing - Handle large documents efficiently
 - 📊 Vector Embeddings - Store and search document content semantically
 - 🔌 Microservices Architecture - Scalable and maintainable design
+
 ## 🏗️ System Architecture
+
+![Vectronix Architecture](./images/vectronix.png)
+
 ```mermaid
 graph TD
     A[Frontend Flutter App] --> B[Backend API]
